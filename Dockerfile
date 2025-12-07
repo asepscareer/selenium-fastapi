@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-ENV GOOGLE_CHROME_BIN=/usr/bin/google-chrome \
+ENV GOOGLE_CHROME_BIN=/usr/bin/chromium \
     CHROMEDRIVER_PATH=/usr/bin/chromedriver
 
 EXPOSE 8000
