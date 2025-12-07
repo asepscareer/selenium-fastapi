@@ -1,0 +1,58 @@
+# Ignore Python bytecode files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignore virtual environment directories
+venv/
+env/
+.venv/
+
+# Ignore distribution/build directories
+build/
+dist/
+.eggs/
+*.egg-info/
+
+# Ignore IDE/editor specific files
+.vscode/
+.idea/
+
+# Ignore OS generated files
+.DS_Store
+Thumbs.db
+
+# Ignore log files
+*.log
+
+# Ignore coverage reports
+htmlcov/
+.coverage
+.coverage.*
+
+# Ignore pytest cache
+.pytest_cache/
+
+# Ignore mypy cache
+.mypy_cache/
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore Selenium WebDriver binaries
+chromedriver
+geckodriver
+IEDriverServer.exe
+
+# Ignore FastAPI auto-generated files
+.fastapi/
+__pypackages__/
+
+# Ignore other common files
+*.env
+*.sqlite3
+*.db
+*.sqlite
+*.pem
+*.key
+*.crt
