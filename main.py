@@ -1,19 +1,36 @@
-from fastapi import FastAPI
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from bs4 import BeautifulSoup
-import uvicorn
-import os
 import logging
+import os
+import time
 
-app = FastAPI()
-logging.basicConfig(level=logging.INFO)
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
+from selenium import webdriver
+from selenium.common.exceptions import WebDriverException
+
+
+load_dotenv()
+
+SELENIUM_URL = os.getenv(
+    "SELENIUM_URL",
+    "http://selenium.railway.internal:4444/wd/hub",
+)
+SCRAPE_URL = os.getenv("SCRAPE_URL", "https://www.scrapethissite.com/")
+
+app = FastAPI(title="Selenium FastAPI")
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
 logger = logging.getLogger(__name__)
 
-def init_driver():
-    service = Service(os.environ.get("CHROMEDRIVER_PATH"))
+
+def init_driver() -> webdriver.Remote:
     options = webdriver.ChromeOptions()
-    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+    options.add_argument(
+        "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 "
+        "Safari/537.36"
+    )
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
@@ -21,36 +38,62 @@ def init_driver():
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--blink-settings=imagesEnabled=false")
-    options.binary_location = os.environ.get("GOOGLE_CHROME_BIN")
 
-    driver = webdriver.Chrome(service=service, options=options)
-    return driver
+    return webdriver.Remote(
+        command_executor=SELENIUM_URL,
+        options=options,
+    )
 
 
 @app.get("/")
-def root():
-    return {"message": "Selenium FastAPI on Railway - OK"}
+def home():
+    return {
+        "status": "selenium-fastapi ready",
+        "selenium_url": SELENIUM_URL,
+        "test_endpoint": "GET /scrape",
+    }
 
 
 @app.get("/scrape")
 def scrape():
-    title = None
-    url = "https://www.scrapethissite.com/"
-    driver = init_driver()
+    driver = None
+    started_at = time.monotonic()
+
+    logger.info("Starting scrape url=%s selenium_url=%s", SCRAPE_URL, SELENIUM_URL)
+
     try:
-        logger.info(f"Scraping URL: {url}")
-        driver.get(url)
-        html = driver.page_source
-        soup = BeautifulSoup(html, "html.parser")
-        title = soup.title.string if soup.title else "No title found"
+        driver = init_driver()
+        driver.get(SCRAPE_URL)
+        title = driver.title
+        duration = time.monotonic() - started_at
 
-        logger.info(f"Scraped Title: {title}")
-    except Exception as e:
-        logger.error(f"Error during scraping: {e}")
+        logger.info(
+            "Finished scrape url=%s title=%r duration=%.2fs",
+            SCRAPE_URL,
+            title,
+            duration,
+        )
+
+        return {
+            "url": SCRAPE_URL,
+            "title": title,
+        }
+    except WebDriverException as exc:
+        duration = time.monotonic() - started_at
+        logger.exception(
+            "Failed scrape url=%s duration=%.2fs error=%s",
+            SCRAPE_URL,
+            duration,
+            exc.msg,
+        )
+
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "error": "Could not connect to Selenium Remote WebDriver",
+                "message": exc.msg,
+            },
+        ) from exc
     finally:
-        driver.quit()
-        return {"title": title, "url": url}
-
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="localhost", port=8000)
+        if driver is not None:
+            driver.quit()
